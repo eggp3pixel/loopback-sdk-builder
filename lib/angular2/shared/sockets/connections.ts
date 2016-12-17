@@ -25,13 +25,15 @@ export class SocketConnections {
 
       this._connections[url] = this.driver.connect(url, config);
       let socket: any/*SocketIOClient.Socket*/ = this._connections[url];
+
+      this._addWildcardFunction(socket);
+
       socket.on('connect_error', this._handlerErrorAndReconnect("connect_error", socket));
       socket.on('connect_timeout', this._handlerErrorAndReconnect("connect_timeout", socket));
       socket.on('reconnect_error', this._handlerErrorAndReconnect("reconnect_error", socket));
       socket.on('reconnect_failed', this._handlerErrorAndReconnect("reconnect_failed", socket));
       socket.on('disconnect', this._handlerErrorAndReconnect("disconnect", socket));
       socket.on('connect', () => {
-        console.log("Socket connected");
         if (token.id) {
           console.log("Socket emit authentication");
           socket.emit('authentication', token);
@@ -47,6 +49,16 @@ export class SocketConnections {
     }
 
     return this._connections[url];
+  }
+
+  private _addWildcardFunction(socket: any) {
+    let onevent: Function = socket.onevent;
+    socket.onevent = function (packet) {
+      var args = packet.data || [];
+      onevent.call(this, packet);    // original call
+      packet.data = ["*"].concat(args);
+      onevent.call(this, packet);      // additional call to catch-all
+    };
   }
 
   private _handlerErrorAndReconnect(name, socket) {
